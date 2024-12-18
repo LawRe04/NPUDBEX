@@ -1,29 +1,36 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from db import get_connection
+from routes.permissions import role_required
+import json  # 导入 JSON 模块
 
 orders_bp = Blueprint('orders', __name__)
 
 # 买家创建订单
 @orders_bp.route('/orders', methods=['POST'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
 def create_order():
     """创建订单"""
+    current_user = json.loads(get_jwt_identity())  # 将字符串转换回字典
+    buyer_id = current_user['user_id']  # 获取买家 ID
+
     data = request.get_json()
-    buyer_id = int(data['buyer_id'])
     product_id = int(data['product_id'])
     quantity = int(data['quantity'])
 
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
-            # 获取产品价格
+            # 获取产品价格和库存
             cursor.execute("SELECT price, stock FROM products WHERE product_id = %s", (product_id,))
             product = cursor.fetchone()
 
             if not product:
                 return jsonify({'error': '产品不存在'}), 404
 
-            price = float(product['price'])  # 转换价格为浮点数
-            stock = int(product['stock'])  # 转换库存为整数
+            price = float(product['price'])
+            stock = int(product['stock'])
 
             if quantity > stock:
                 return jsonify({'error': '库存不足'}), 400
@@ -46,14 +53,16 @@ def create_order():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
     finally:
         if conn:
             conn.close()
 
 # 获取所有订单
 @orders_bp.route('/orders', methods=['GET'])
+@jwt_required()
+@role_required('admin')  # 仅管理员可访问
 def get_orders():
+    """获取所有订单"""
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
@@ -68,7 +77,10 @@ def get_orders():
 
 # 更新订单状态
 @orders_bp.route('/orders/<int:order_id>', methods=['PUT'])
+@jwt_required()
+@role_required('admin')  # 仅管理员可访问
 def update_order(order_id):
+    """更新订单状态"""
     data = request.get_json()
     status = data['status']
 
@@ -87,7 +99,10 @@ def update_order(order_id):
 
 # 删除订单
 @orders_bp.route('/orders/<int:order_id>', methods=['DELETE'])
+@jwt_required()
+@role_required('admin')  # 仅管理员可访问
 def delete_order(order_id):
+    """删除订单"""
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
