@@ -75,6 +75,29 @@ def get_orders():
         if conn:
             conn.close()
 
+# 买家获取自己的订单
+@orders_bp.route('/orders/my', methods=['GET'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
+def get_my_orders():
+    """获取买家的所有订单"""
+    current_user = json.loads(get_jwt_identity())  # 获取当前用户信息
+    buyer_id = current_user['user_id']  # 获取买家 ID
+
+    try:
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 查询当前买家的订单
+            sql = "SELECT * FROM orders WHERE buyer_id = %s"
+            cursor.execute(sql, (buyer_id,))
+            orders = cursor.fetchall()
+        return jsonify(orders), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
 # 更新订单状态
 @orders_bp.route('/orders/<int:order_id>', methods=['PUT'])
 @jwt_required()

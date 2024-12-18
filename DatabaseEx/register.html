@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户注册</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: url('background_register.png') no-repeat center center fixed; /* 背景图片 */
+            background-size: cover; /* 让图片覆盖整个屏幕 */
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        h2 {
+            text-align: center;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .link {
+            text-align: center;
+            margin-top: 10px;
+        }
+        a {
+            text-decoration: none;
+            color: #4CAF50;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        #message {
+            text-align: center;
+            margin-top: 10px;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>用户注册</h2>
+        <form id="register-form">
+            <input type="text" id="username" placeholder="用户名" required>
+            <input type="password" id="password" placeholder="密码" required>
+            <select id="role" required>
+                <option value="" disabled selected>请选择角色</option>
+                <option value="buyer">买家</option>
+                <option value="seller">卖家</option>
+            </select>
+            <button type="submit">注册</button>
+        </form>
+        <div class="link">
+            <p>已有账号？ <a href="login.html">去登录</a></p>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById("register-form").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const role = document.getElementById("role").value;
+            const messageDiv = document.getElementById("message");
+
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/users/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password, role })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    messageDiv.style.color = "green";
+                    messageDiv.textContent = "注册成功，请前往登录";
+                    setTimeout(() => window.location.href = "login.html", 1500); // 跳转到登录页面
+                } else {
+                    messageDiv.textContent = data.error || "注册失败，请重试";
+                }
+            } catch (error) {
+                messageDiv.textContent = "网络错误，请重试";
+            }
+        });
+    </script>
+</body>
+</html>

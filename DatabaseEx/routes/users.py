@@ -16,6 +16,10 @@ def register_user():
         password = data['password']
         role = data['role']
 
+        # 后端限制：role 只能是 buyer 或 seller
+        if role not in ['buyer', 'seller']:
+            return jsonify({'error': '非法角色，无法注册为管理员'}), 400
+
         conn = get_connection()
         with conn.cursor() as cursor:
             sql = "INSERT INTO users (username, password, role) VALUES (%s, %s, %s)"
@@ -76,6 +80,32 @@ def get_users():
             cursor.execute("SELECT * FROM users")
             users = cursor.fetchall()
         return jsonify(users), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@users_bp.route('/users/me', methods=['GET'])
+@jwt_required()
+def get_user_info():
+    """获取当前用户的信息（非管理员查看自身信息）"""
+    conn = None
+    try:
+        # 将 identity 转回字典
+        current_user = json.loads(get_jwt_identity())
+        user_id = current_user.get('user_id')
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            sql = "SELECT user_id, username, role FROM users WHERE user_id=%s"
+            cursor.execute(sql, (user_id,))
+            user_info = cursor.fetchone()
+
+            if not user_info:
+                return jsonify({'error': '用户不存在'}), 404
+
+        return jsonify({'user_info': user_info}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
