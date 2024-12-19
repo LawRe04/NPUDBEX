@@ -16,12 +16,17 @@ def register_user():
         password = data['password']
         role = data['role']
 
-        # 后端限制：role 只能是 buyer 或 seller
         if role not in ['buyer', 'seller']:
             return jsonify({'error': '非法角色，无法注册为管理员'}), 400
 
         conn = get_connection()
         with conn.cursor() as cursor:
+            # 检查用户名是否已存在
+            cursor.execute("SELECT COUNT(*) AS count FROM users WHERE username = %s", (username,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return jsonify({'error': '用户名已存在'}), 409
+
             sql = "INSERT INTO users (username, password, role) VALUES (%s, %s, %s)"
             cursor.execute(sql, (username, password, role))
             conn.commit()
@@ -31,6 +36,7 @@ def register_user():
     finally:
         if conn:
             conn.close()
+
 
 @users_bp.route('/users/login', methods=['POST'])
 def login_user():
