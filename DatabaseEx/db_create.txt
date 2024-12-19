@@ -4,7 +4,7 @@ USE agriculture_db;
 
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
+    username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role ENUM('buyer', 'seller', 'admin') NOT NULL
 );
@@ -28,3 +28,34 @@ CREATE TABLE orders (
     FOREIGN KEY (buyer_id) REFERENCES users(user_id),
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+
+-- 创建购物车表
+CREATE TABLE cart (
+    cart_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0), -- 购买数量必须大于0
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- 创建评价表，使用复合主键防止刷单
+CREATE TABLE reviews (
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    stars INT NOT NULL CHECK (stars BETWEEN 1 AND 5), -- 星级为1到5
+    comment TEXT,
+    PRIMARY KEY (product_id, user_id), -- 复合主键，防止同一用户对同一商品多次评价
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+
+-- 创建平均星级表，添加评价数属性
+CREATE TABLE average_ratings (
+    product_id INT PRIMARY KEY,
+    average_stars DECIMAL(3, 2) NOT NULL DEFAULT 0.00 CHECK (average_stars BETWEEN 0 AND 5),
+    review_count INT NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+    FOREIGN KEY (product_id) REFERENCES products(product_id)
+);
+
