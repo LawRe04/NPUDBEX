@@ -98,6 +98,34 @@ def get_my_orders():
         if conn:
             conn.close()
 
+# 卖家获取自己的销售订单
+@orders_bp.route('/orders/sales', methods=['GET'])
+@jwt_required()
+@role_required('seller')  # 仅卖家可访问
+def get_sales_orders():
+    """获取卖家的所有销售订单"""
+    current_user = json.loads(get_jwt_identity())  # 获取当前用户信息
+    seller_id = current_user['user_id']  # 获取卖家 ID
+
+    try:
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 查询卖家相关的订单
+            sql = """
+            SELECT o.order_id, o.buyer_id, o.product_id, o.quantity, o.total_price, o.status, p.name AS product_name
+            FROM orders o
+            JOIN products p ON o.product_id = p.product_id
+            WHERE p.seller_id = %s
+            """
+            cursor.execute(sql, (seller_id,))
+            sales_orders = cursor.fetchall()
+        return jsonify(sales_orders), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
 # 更新订单状态
 @orders_bp.route('/orders/<int:order_id>', methods=['PUT'])
 @jwt_required()
