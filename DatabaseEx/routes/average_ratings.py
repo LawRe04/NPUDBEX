@@ -105,6 +105,16 @@ def create_triggers():
                     WHERE product_id = OLD.product_id;
                 END;
             """)
+
+            # 创建触发器：在删除商品前删除所有相关订单
+            cursor.execute("""
+                CREATE TRIGGER before_delete_cascade_orders
+                BEFORE DELETE ON products
+                FOR EACH ROW
+                BEGIN
+                    DELETE FROM orders WHERE product_id = OLD.product_id;
+                END;
+            """)
             conn.commit()
     except Exception as e:
         print(f"Error creating triggers: {e}")

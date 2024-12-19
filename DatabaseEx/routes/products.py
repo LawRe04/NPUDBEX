@@ -39,12 +39,34 @@ def add_product():
 @products_bp.route('/products', methods=['GET'])
 @jwt_required()
 def get_products():
-    """获取所有产品"""
+    """获取所有产品，包括平均评分和评价数量"""
     conn = None
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM products")
+            sql = """
+                SELECT 
+                    p.product_id,
+                    p.name,
+                    p.price,
+                    p.stock,
+                    u.username AS seller_name,
+                    IFNULL(AVG(r.stars), 0) AS average_rating,
+                    COUNT(r.stars) AS rating_count
+                FROM 
+                    products p
+                LEFT JOIN 
+                    reviews r
+                ON 
+                    p.product_id = r.product_id
+                LEFT JOIN
+                    users u
+                ON
+                    p.seller_id = u.user_id
+                GROUP BY 
+                    p.product_id, p.name, p.price, p.stock
+            """
+            cursor.execute(sql)
             products = cursor.fetchall()
         return jsonify(products), 200
     except Exception as e:
@@ -241,6 +263,43 @@ def get_product(product_id):
             if not product:
                 return jsonify({'error': '商品不存在或无权限访问'}), 404
         return jsonify(product), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# 推荐产品
+@products_bp.route('/products/recommend', methods=['GET'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
+def recommend_products():
+    """推荐产品（非个性化）"""
+    conn = None
+    try:
+        # 获取推荐数量参数，默认为 10
+        limit = request.args.get('limit', default=10, type=int)
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 查询评价数和平均评分，并按综合排序
+            sql = """
+                SELECT 
+                    p.product_id,
+                    p.name AS product_name,
+                    p.price,
+                    p.stock,
+                    IFNULL(ar.average_stars, 0.00) AS average_rating,
+                    IFNULL(ar.review_count, 0) AS rating_count
+                FROM products p
+                LEFT JOIN average_ratings ar ON p.product_id = ar.product_id
+                ORDER BY ar.review_count DESC, ar.average_stars DESC
+                LIMIT %s
+            """
+            cursor.execute(sql, (limit,))
+            products = cursor.fetchall()
+
+        return jsonify(products), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:

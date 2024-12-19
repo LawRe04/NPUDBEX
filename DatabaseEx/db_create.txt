@@ -59,3 +59,17 @@ CREATE TABLE average_ratings (
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
 
+--创建一个触发器，当删除product前，级联删除orders的对应表
+DELIMITER $$
+
+CREATE TRIGGER before_delete_cascade_orders
+BEFORE DELETE ON products
+FOR EACH ROW
+BEGIN
+    -- 删除 orders 表中与将要删除的产品相关的记录
+    DELETE FROM orders WHERE product_id = OLD.product_id;
+END $$
+
+DELIMITER ;
+
+

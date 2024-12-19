@@ -80,15 +80,28 @@ def get_orders():
 @jwt_required()
 @role_required('buyer')  # 仅买家可访问
 def get_my_orders():
-    """获取买家的所有订单"""
+    """获取买家的所有订单，包括商品名称和商家名"""
     current_user = json.loads(get_jwt_identity())  # 获取当前用户信息
     buyer_id = current_user['user_id']  # 获取买家 ID
 
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
-            # 查询当前买家的订单
-            sql = "SELECT * FROM orders WHERE buyer_id = %s"
+            # 查询当前买家的订单，包含商品名称和商家名称
+            sql = """
+            SELECT 
+                o.order_id, 
+                o.product_id, 
+                o.quantity, 
+                o.total_price, 
+                o.status, 
+                p.name AS product_name, 
+                u.username AS seller_name
+            FROM orders o
+            JOIN products p ON o.product_id = p.product_id
+            JOIN users u ON p.seller_id = u.user_id
+            WHERE o.buyer_id = %s
+            """
             cursor.execute(sql, (buyer_id,))
             orders = cursor.fetchall()
         return jsonify(orders), 200
@@ -97,6 +110,7 @@ def get_my_orders():
     finally:
         if conn:
             conn.close()
+
 
 # 卖家获取自己的销售订单
 @orders_bp.route('/orders/sales', methods=['GET'])

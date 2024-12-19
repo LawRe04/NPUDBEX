@@ -2,9 +2,669 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>买家主页</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+        nav {
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+        }
+        nav a {
+            margin: 0 15px;
+            text-decoration: none;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        table th {
+            background-color: #f2f2f2;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
 </head>
 <body>
+    <header>
+        <h1>欢迎来到买家主页</h1>
+    </header>
+    <nav>
+        <a href="#" id="view-products">查看所有商品</a>
+        <a href="#" id="search-products">搜索商品</a>
+        <a href="#" id="view-cart">查看购物车</a>
+        <a href="#" id="view-orders">查看订单</a>
+        <a href="#" id="recommend-products">推荐商品</a>
+        <a href="#" id="review-product">评价商品</a>
+        <a href="#" id="view-my-reviews">我的评价</a>
+        <a href="login.html" id="logout">退出登录</a>
+    </nav>
+    <div class="container" id="content">
+        <h2>操作提示：请选择上方的功能</h2>
+    </div>
 
+    <script>
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert("未登录，请先登录！");
+            window.location.href = "login.html";
+        }
+
+        const contentDiv = document.getElementById("content");
+
+        // 查看所有商品
+        document.getElementById("view-products").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/products", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const products = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>所有商品</h2>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>名称</th>
+                                <th>价格</th>
+                                <th>库存</th>
+                                <th>商家名</th>
+                                <th>平均评分</th>
+                                <th>评分数</th>
+                                <th>操作</th>
+                            </tr>`;
+                    products.forEach(product => {
+                        table += `
+                            <tr>
+                                <td>${product.product_id}</td>
+                                <td>${product.name}</td>
+                                <td>${product.price}</td>
+                                <td>${product.stock}</td>
+                                <td>${product.seller_name}</td>
+                                <td>${product.average_rating || 0}</td>
+                                <td>${product.rating_count || 0}</td>
+                                <td>
+                                    <input type="number" id="quantity-${product.product_id}" placeholder="数量" min="1" max="${product.stock}" style="width: 60px;">
+                                    <button onclick="addToCart(${product.product_id})">加入购物车</button>
+                                    <button onclick="placeOrder(${product.product_id})">直接下单</button>
+                                    <button onclick="viewReviews(${product.product_id})">查看所有评价</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${products.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 查看商品评价
+        async function viewReviews(productId) {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/reviews/${productId}`, {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                const reviews = await response.json();
+                if (response.ok) {
+                    let reviewTable = `
+                        <h2>商品ID: ${productId} 的所有评价</h2>
+                        <table>
+                            <tr>
+                                <th>用户ID</th>
+                                <th>用户名</th>
+                                <th>星级评分</th>
+                                <th>评价内容</th>
+                            </tr>`;
+                    reviews.forEach(review => {
+                        reviewTable += `
+                            <tr>
+                                <td>${review.user_id}</td>
+                                <td>${review.username}</td>
+                                <td>${review.stars}</td>
+                                <td>${review.comment || "无评价内容"}</td>
+                            </tr>`;
+                    });
+                    reviewTable += "</table>";
+                    contentDiv.innerHTML = reviewTable;
+                } else {
+                    contentDiv.innerHTML = `<h2>${reviews.error || "无法加载评价"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试！</h2>";
+            }
+        }
+
+        // 加入购物车
+        async function addToCart(productId) {
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            const quantity = parseInt(quantityInput.value, 10);
+
+            if (!quantity || quantity <= 0) {
+                alert("请输入有效的数量！");
+                return;
+            }
+
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/cart", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ product_id: productId, quantity })
+                });
+                if (response.ok) {
+                    alert("商品已加入购物车！");
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.error || "加入购物车失败！");
+                }
+            } catch (error) {
+                alert("网络错误，请重试！");
+            }
+        }
+
+        // 直接下单
+        async function placeOrder(productId) {
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            const quantity = parseInt(quantityInput.value, 10);
+
+            if (!quantity || quantity <= 0) {
+                alert("请输入有效的数量！");
+                return;
+            }
+
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/orders", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ product_id: productId, quantity })
+                });
+                if (response.ok) {
+                    alert("订单已生成！");
+                    document.getElementById("view-orders").click(); // 刷新订单页面
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.error || "下单失败！");
+                }
+            } catch (error) {
+                alert("网络错误，请重试！");
+            }
+        }
+
+        // 搜索商品
+        document.getElementById("search-products").addEventListener("click", () => {
+            contentDiv.innerHTML = `
+                <h2>搜索商品</h2>
+                <form id="search-form">
+                    <input type="text" id="search-product-id" placeholder="商品ID">
+                    <input type="text" id="search-product-name" placeholder="商品名称">
+                    <input type="text" id="search-seller-id" placeholder="卖家ID">
+                    <input type="text" id="search-seller-name" placeholder="卖家名称">
+                    <button type="submit">搜索</button>
+                </form>
+                <div id="search-results"></div>
+            `;
+
+            document.getElementById("search-form").addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const productId = document.getElementById("search-product-id").value.trim();
+                const productName = document.getElementById("search-product-name").value.trim();
+                const sellerId = document.getElementById("search-seller-id").value.trim();
+                const sellerName = document.getElementById("search-seller-name").value.trim();
+
+                const queryParams = new URLSearchParams();
+                if (productId) queryParams.append("product_id", productId);
+                if (productName) queryParams.append("name", productName);
+                if (sellerId) queryParams.append("seller_id", sellerId);
+                if (sellerName) queryParams.append("seller_name", sellerName);
+
+                const resultsDiv = document.getElementById("search-results");
+                resultsDiv.innerHTML = "<h2>加载中...</h2>";
+
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/products/search?${queryParams.toString()}`, {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const products = await response.json();
+
+                    if (response.ok) {
+                        let table = `
+                            <h2>搜索结果</h2>
+                            <table>
+                                <tr>
+                                    <th>商品ID</th>
+                                    <th>名称</th>
+                                    <th>价格</th>
+                                    <th>库存</th>
+                                    <th>平均评分</th>
+                                    <th>评分数</th>
+                                    <th>操作</th>
+                                </tr>`;
+                        products.forEach(product => {
+                            table += `
+                                <tr>
+                                    <td>${product.product_id}</td>
+                                    <td>${product.product_name}</td>
+                                    <td>${product.price}</td>
+                                    <td>${product.stock}</td>
+                                    <td>${product.average_rating || 0}</td>
+                                    <td>${product.rating_count || 0}</td>
+                                    <td>
+                                        <input type="number" id="quantity-${product.product_id}" placeholder="数量" min="1" max="${product.stock}" style="width: 60px;">
+                                        <button onclick="addToCart(${product.product_id})">加入购物车</button>
+                                        <button onclick="placeOrder(${product.product_id})">直接下单</button>
+                                        <button onclick="viewReviews(${product.product_id})">查看所有评价</button>
+                                    </td>
+                                </tr>`;
+                        });
+                        table += "</table>";
+                        resultsDiv.innerHTML = table;
+                    } else {
+                        resultsDiv.innerHTML = `<h2>${products.error || "加载失败"}</h2>`;
+                    }
+                } catch (error) {
+                    resultsDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+                }
+            });
+        });
+
+        // 查看购物车
+        document.getElementById("view-cart").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/cart", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>购物车</h2>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>名称</th>
+                                <th>数量</th>
+                                <th>单价</th>
+                                <th>总价</th>
+                                <th>操作</th>
+                            </tr>`;
+                    cartItems.forEach(item => {
+                        table += `
+                            <tr>
+                                <td>${item.product_id}</td>
+                                <td>${item.product_name}</td>
+                                <td>
+                                    <input type="number" id="quantity-${item.product_id}" value="${item.quantity}" min="1" style="width: 60px;">
+                                </td>
+                                <td>${item.price}</td>
+                                <td>${item.total_price}</td>
+                                <td>
+                                    <button onclick="updateCart(${item.product_id})">更新数量</button>
+                                    <button onclick="removeFromCart(${item.product_id})">移除</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    table += `<button onclick="checkoutCart()">批量下单</button>`;
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${cartItems.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 更新购物车中的商品数量
+        async function updateCart(productId) {
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            const newQuantity = parseInt(quantityInput.value, 10);
+
+            if (!newQuantity || newQuantity <= 0) {
+                alert("请输入有效的数量！");
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/cart/${productId}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ quantity: newQuantity })
+                });
+
+                if (response.ok) {
+                    alert("购物车已更新！");
+                    document.getElementById("view-cart").click(); // 刷新购物车页面
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.error || "更新失败，请重试！");
+                }
+            } catch (error) {
+                alert("网络错误，请重试：" + error.message);
+            }
+        }
+
+        // 查看订单
+        document.getElementById("view-orders").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/orders/my", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const orders = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>我的订单</h2>
+                        <table>
+                            <tr>
+                                <th>订单ID</th>
+                                <th>商品名称</th>
+                                <th>商家名称</th>
+                                <th>数量</th>
+                                <th>总价</th>
+                                <th>状态</th>
+                            </tr>`;
+                    orders.forEach(order => {
+                        table += `
+                            <tr>
+                                <td>${order.order_id}</td>
+                                <td>${order.product_name}</td>
+                                <td>${order.seller_name}</td>
+                                <td>${order.quantity}</td>
+                                <td>${order.total_price}</td>
+                                <td>${order.status}</td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${orders.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 推荐商品
+        document.getElementById("recommend-products").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/products/recommend", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const recommendations = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>推荐商品</h2>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>名称</th>
+                                <th>价格</th>
+                                <th>库存</th>
+                                <th>平均评分</th>
+                                <th>评分数</th>
+                                <th>操作</th>
+                            </tr>`;
+                    recommendations.forEach(product => {
+                        table += `
+                            <tr>
+                                <td>${product.product_id}</td>
+                                <td>${product.product_name}</td>
+                                <td>${product.price}</td>
+                                <td>${product.stock}</td>
+                                <td>${product.average_rating || 0}</td>
+                                <td>${product.rating_count || 0}</td>
+                                <td>
+                                    <input type="number" id="quantity-${product.product_id}" placeholder="数量" min="1" max="${product.stock}" style="width: 60px;">
+                                    <button onclick="addToCart(${product.product_id})">加入购物车</button>
+                                    <button onclick="placeOrder(${product.product_id})">直接下单</button>
+                                    <button onclick="viewReviews(${product.product_id})">查看所有评价</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${recommendations.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 移除购物车中的商品
+        async function removeFromCart(productId) {
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/cart/${productId}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    alert("商品已移除！");
+                    document.getElementById("view-cart").click();
+                } else {
+                    alert("移除失败，请重试");
+                }
+            } catch (error) {
+                alert("网络错误，请重试");
+            }
+        }
+
+        // 批量下单
+        async function checkoutCart() {
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/cart/checkout", { // 确保路径与后端一致
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`, // 确保 token 有效
+                        "Content-Type": "application/json"  // 明确声明请求的 Content-Type
+                    }
+                });
+
+                const result = await response.json(); // 获取返回结果
+                if (response.ok) {
+                    let message = "批量下单成功！\n成功订单：\n";
+                    result.successful_orders.forEach(order => {
+                        message += `商品ID: ${order.product_id}, 数量: ${order.quantity}, 总价: ${order.total_price}\n`;
+                    });
+
+                    if (result.failed_orders.length > 0) {
+                        message += "\n以下订单处理失败：\n";
+                        result.failed_orders.forEach(failedOrder => {
+                            message += `商品ID: ${failedOrder.product_id}, 原因: ${failedOrder.reason}\n`;
+                        });
+                    }
+
+                    alert(message); // 显示成功和失败订单信息
+                    document.getElementById("view-cart").click(); // 刷新购物车
+                } else {
+                    alert(result.error || "下单失败，请重试");
+                }
+            } catch (error) {
+                alert("网络错误，请重试：" + error.message);
+            }
+        }
+
+        // 评价商品
+        document.getElementById("review-product").addEventListener("click", () => {
+            contentDiv.innerHTML = `
+                <h2>评价商品</h2>
+                <form id="review-form">
+                    <label for="product-id">商品ID：</label>
+                    <input type="number" id="product-id" placeholder="请输入商品ID" required>
+                    <br><br>
+                    <label for="stars">星级评分（1-5）：</label>
+                    <input type="number" id="stars" placeholder="请输入评分" min="1" max="5" required>
+                    <br><br>
+                    <label for="comment">评价内容：</label>
+                    <textarea id="comment" placeholder="请输入评价内容" rows="4" cols="50"></textarea>
+                    <br><br>
+                    <button type="submit">提交评价</button>
+                </form>
+                <div id="review-message"></div>
+            `;
+
+            document.getElementById("review-form").addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const productId = document.getElementById("product-id").value.trim();
+                const stars = document.getElementById("stars").value.trim();
+                const comment = document.getElementById("comment").value.trim();
+                const messageDiv = document.getElementById("review-message");
+
+                messageDiv.innerHTML = "<h2>提交中...</h2>";
+
+                try {
+                    const response = await fetch("http://127.0.0.1:5000/api/reviews", {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            product_id: productId,
+                            stars: parseInt(stars),
+                            comment: comment
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        messageDiv.innerHTML = `<h2>${result.message}</h2>`;
+                    } else {
+                        const errorData = await response.json();
+                        messageDiv.innerHTML = `<h2>${errorData.error || "提交失败，请重试！"}</h2>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = "<h2>网络错误，请重试！</h2>";
+                }
+            });
+        });
+
+        // 查看我的评价
+        document.getElementById("view-my-reviews").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/reviews/my", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const reviews = await response.json();
+                if (response.ok) {
+                    if (reviews.length === 0) {
+                        contentDiv.innerHTML = "<h2>您还没有发表过任何评价。</h2>";
+                        return;
+                    }
+
+                    let table = `
+                        <h2>我的评价</h2>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>商品名称</th>
+                                <th>星级</th>
+                                <th>评价内容</th>
+                                <th>操作</th>
+                            </tr>`;
+                    reviews.forEach(review => {
+                        table += `
+                            <tr>
+                                <td>${review.product_id}</td>
+                                <td>${review.product_name}</td>
+                                <td>${review.stars}</td>
+                                <td>${review.comment || "无评价内容"}</td>
+                                <td>
+                                    <button onclick="deleteReview(${review.product_id})">撤回评价</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${reviews.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 撤回评价
+        async function deleteReview(productId) {
+            if (!confirm("您确定要撤回这条评价吗？")) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/reviews/${productId}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    alert("评价已撤回！");
+                    document.getElementById("view-my-reviews").click(); // 刷新评价列表
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.error || "撤回评价失败！");
+                }
+            } catch (error) {
+                alert("网络错误，请重试！");
+            }
+        }
+
+    </script>
 </body>
 </html>

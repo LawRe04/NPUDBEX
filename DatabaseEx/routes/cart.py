@@ -117,3 +117,155 @@ def view_cart():
     finally:
         if conn:
             conn.close()
+
+# 批量从购物车下单
+@cart_bp.route('/cart/checkout', methods=['POST'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
+def checkout_cart():
+    """批量下单"""
+    conn = None
+    try:
+        # 获取当前用户信息
+        current_user = json.loads(get_jwt_identity())
+        user_id = current_user['user_id']
+
+        conn = get_connection()
+        conn.autocommit = False  # 开启事务管理
+        with conn.cursor() as cursor:
+            # 查询购物车内容
+            sql_cart = """
+                SELECT c.product_id, c.quantity, p.price, p.stock
+                FROM cart c
+                JOIN products p ON c.product_id = p.product_id
+                WHERE c.user_id = %s
+            """
+            cursor.execute(sql_cart, (user_id,))
+            cart_items = cursor.fetchall()
+
+            if not cart_items:
+                return jsonify({'error': '购物车为空，无法下单'}), 400
+
+            successful_orders = []
+            failed_orders = []
+
+            for item in cart_items:
+                product_id = item['product_id']
+                quantity = item['quantity']
+                price = item['price']
+                stock = item['stock']
+
+                if quantity > stock:
+                    # 如果库存不足，记录失败原因
+                    failed_orders.append({
+                        'product_id': product_id,
+                        'reason': '库存不足'
+                    })
+                    continue
+
+                try:
+                    # 扣减库存并创建订单
+                    total_price = quantity * price
+                    sql_order = """
+                        INSERT INTO orders (buyer_id, product_id, quantity, total_price, status)
+                        VALUES (%s, %s, %s, %s, '已支付')
+                    """
+                    cursor.execute(sql_order, (user_id, product_id, quantity, total_price))
+
+                    sql_update_stock = "UPDATE products SET stock = stock - %s WHERE product_id = %s"
+                    cursor.execute(sql_update_stock, (quantity, product_id))
+
+                    # 从购物车中移除已下单的商品
+                    sql_remove_cart = "DELETE FROM cart WHERE product_id = %s AND user_id = %s"
+                    cursor.execute(sql_remove_cart, (product_id, user_id))
+
+                    # 成功记录
+                    successful_orders.append({
+                        'product_id': product_id,
+                        'quantity': quantity,
+                        'total_price': total_price
+                    })
+
+                except Exception as e:
+                    # 如果当前订单失败，回滚当前循环中的事务
+                    conn.rollback()
+                    failed_orders.append({
+                        'product_id': product_id,
+                        'reason': f'处理失败: {str(e)}'
+                    })
+                    continue
+
+            # 如果有成功的订单，提交事务
+            if successful_orders:
+                conn.commit()
+            else:
+                conn.rollback()  # 如果所有订单失败，回滚整个事务
+
+            return jsonify({
+                'message': '批量下单完成',
+                'successful_orders': successful_orders,
+                'failed_orders': failed_orders
+            }), 200
+
+    except Exception as e:
+        # 捕获全局异常并返回
+        if conn:
+            conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# 更新购物车中的商品数量
+@cart_bp.route('/cart/<int:product_id>', methods=['PATCH'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
+def update_cart(product_id):
+    """更新购物车中商品的数量"""
+    conn = None
+    try:
+        # 获取当前用户信息
+        current_user = json.loads(get_jwt_identity())
+        user_id = current_user['user_id']
+
+        # 获取请求数据
+        data = request.get_json()
+        new_quantity = data.get('quantity')
+
+        # 校验数量
+        if not isinstance(new_quantity, int) or new_quantity <= 0:
+            return jsonify({'error': '数量必须是正整数'}), 400
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 检查购物车中是否有该商品
+            cursor.execute(
+                "SELECT * FROM cart WHERE product_id = %s AND user_id = %s",
+                (product_id, user_id)
+            )
+            cart_item = cursor.fetchone()
+            if not cart_item:
+                return jsonify({'error': '购物车中没有此商品'}), 404
+
+            # 检查商品库存是否足够
+            cursor.execute(
+                "SELECT stock FROM products WHERE product_id = %s",
+                (product_id,)
+            )
+            product = cursor.fetchone()
+            if not product or new_quantity > product['stock']:
+                return jsonify({'error': '库存不足'}), 400
+
+            # 更新购物车中的数量
+            cursor.execute(
+                "UPDATE cart SET quantity = %s WHERE product_id = %s AND user_id = %s",
+                (new_quantity, product_id, user_id)
+            )
+            conn.commit()
+
+        return jsonify({'message': '购物车已更新'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
