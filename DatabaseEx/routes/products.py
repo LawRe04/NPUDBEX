@@ -116,7 +116,7 @@ def delete_product(product_id):
 @products_bp.route('/products/search', methods=['GET'])
 @jwt_required()
 def search_products():
-    """根据条件搜索产品"""
+    """根据条件搜索产品，返回平均评分、评分数量和商家名"""
     conn = None
     try:
         # 获取查询参数
@@ -127,15 +127,24 @@ def search_products():
 
         conn = get_connection()
         with conn.cursor() as cursor:
-            # 构建动态 SQL 查询
+            # 动态 SQL 查询构建
             sql = """
-                SELECT p.product_id, p.name AS product_name, p.price, p.stock, u.username AS seller_name
+                SELECT 
+                    p.product_id, 
+                    p.name AS product_name, 
+                    p.price, 
+                    p.stock, 
+                    u.username AS seller_name, 
+                    IFNULL(ar.average_stars, 0.00) AS average_rating, 
+                    IFNULL(ar.review_count, 0) AS rating_count
                 FROM products p
                 JOIN users u ON p.seller_id = u.user_id
+                LEFT JOIN average_ratings ar ON p.product_id = ar.product_id
                 WHERE 1=1
             """
             params = []
 
+            # 动态条件拼接
             if product_id:
                 sql += " AND p.product_id = %s"
                 params.append(product_id)
@@ -149,9 +158,14 @@ def search_products():
                 sql += " AND u.username LIKE %s"
                 params.append(f"%{seller_name}%")
 
+            # 按评分数从大到小，再按平均评分从大到小排序
+            sql += " ORDER BY rating_count DESC, average_rating DESC"
+
+            # 执行 SQL
             cursor.execute(sql, params)
             products = cursor.fetchall()
 
+        # 返回结果
         return jsonify(products), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -164,7 +178,7 @@ def search_products():
 @jwt_required()
 @role_required('seller')
 def get_seller_products():
-    """获取卖家自己的商品"""
+    """获取卖家自己的商品，包括评价数目和平均评分"""
     conn = None
     try:
         # 获取当前登录卖家信息
@@ -173,10 +187,18 @@ def get_seller_products():
 
         conn = get_connection()
         with conn.cursor() as cursor:
+            # 查询商品信息并关联平均评分和评价数
             sql = """
-                SELECT product_id, name, price, stock
-                FROM products
-                WHERE seller_id = %s
+                SELECT 
+                    p.product_id, 
+                    p.name, 
+                    p.price, 
+                    p.stock, 
+                    IFNULL(ar.average_stars, 0.00) AS average_rating, 
+                    IFNULL(ar.review_count, 0) AS rating_count
+                FROM products p
+                LEFT JOIN average_ratings ar ON p.product_id = ar.product_id
+                WHERE p.seller_id = %s
             """
             cursor.execute(sql, (seller_id,))
             products = cursor.fetchall()
@@ -193,7 +215,7 @@ def get_seller_products():
 @jwt_required()
 @role_required('seller')
 def get_product(product_id):
-    """获取单个商品信息"""
+    """获取单个商品信息，包括评分数和平均评分"""
     conn = None
     try:
         current_user = json.loads(get_jwt_identity())
@@ -201,7 +223,20 @@ def get_product(product_id):
 
         conn = get_connection()
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM products WHERE product_id = %s AND seller_id = %s", (product_id, seller_id))
+            # 查询商品信息并关联评分数和平均评分
+            sql = """
+                SELECT 
+                    p.product_id, 
+                    p.name, 
+                    p.price, 
+                    p.stock, 
+                    IFNULL(ar.average_stars, 0.00) AS average_rating, 
+                    IFNULL(ar.review_count, 0) AS rating_count
+                FROM products p
+                LEFT JOIN average_ratings ar ON p.product_id = ar.product_id
+                WHERE p.product_id = %s AND p.seller_id = %s
+            """
+            cursor.execute(sql, (product_id, seller_id))
             product = cursor.fetchone()
             if not product:
                 return jsonify({'error': '商品不存在或无权限访问'}), 404

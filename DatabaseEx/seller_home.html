@@ -110,8 +110,8 @@
             }
         });
 
-        // 查看我的商品
-        document.getElementById("view-products").addEventListener("click", async () => {
+        //查看我的商品
+                document.getElementById("view-products").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
                 const response = await fetch("http://127.0.0.1:5000/api/products/seller", {
@@ -128,15 +128,19 @@
                                 <th>名称</th>
                                 <th>价格</th>
                                 <th>库存</th>
+                                <th>平均评分</th>
+                                <th>评分数</th>
                                 <th>操作</th>
                             </tr>`;
                     products.forEach(product => {
                         table += `
                             <tr>
                                 <td>${product.product_id}</td>
-                                <td>${product.name}</td>
-                                <td>${product.price}</td>
-                                <td>${product.stock}</td>
+                                <td>${product.name || "未知"}</td>
+                                <td>${product.price || "未知"}</td>
+                                <td>${product.stock || "未知"}</td>
+                                <td>${product.average_rating || "未知"}</td>
+                                <td>${product.rating_count !== null && product.rating_count !== undefined ? product.rating_count : 0}</td>
                                 <td>
                                     <button onclick="editProduct(${product.product_id})">修改</button>
                                     <button onclick="deleteProduct(${product.product_id})">删除</button>
@@ -149,9 +153,11 @@
                     contentDiv.innerHTML = `<h2>${products.error || "加载失败"}</h2>`;
                 }
             } catch (error) {
+                console.error("加载商品时发生错误：", error);
                 contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
             }
         });
+
 
         // 添加商品
         document.getElementById("add-product").addEventListener("click", () => {
@@ -389,6 +395,9 @@
                                     <th>名称</th>
                                     <th>价格</th>
                                     <th>库存</th>
+                                    <th>商家名</th>
+                                    <th>平均评分</th>
+                                    <th>评分数</th>
                                 </tr>`;
                         results.forEach(product => {
                             table += `
@@ -397,6 +406,9 @@
                                     <td>${product.product_name}</td>
                                     <td>${product.price}</td>
                                     <td>${product.stock}</td>
+                                    <td>${product.seller_name}</td>
+                                    <td>${product.average_rating}</td>
+                                    <td>${product.rating_count}</td>
                                 </tr>`;
                         });
                         table += "</table>";
