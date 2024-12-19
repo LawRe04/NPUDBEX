@@ -6,21 +6,40 @@ from routes.permissions import role_required
 
 average_ratings_bp = Blueprint('average_ratings', __name__)
 
-# 创建触发器函数
 def create_triggers():
-    """创建触发器，用于在相关表发生变化时更新平均星级"""
+    """创建触发器，用于在相关表发生变化时自动处理依赖关系"""
     conn = None
     try:
         conn = get_connection()
         with conn.cursor() as cursor:
             # 创建触发器：在新增商品时添加平均星级初始行
             cursor.execute("""
-                CREATE TRIGGER after_insert_product
+                CREATE TRIGGER before_insert_product
                 AFTER INSERT ON products
                 FOR EACH ROW
                 BEGIN
                     INSERT INTO average_ratings (product_id, average_stars, review_count)
                     VALUES (NEW.product_id, 0.00, 0);
+                END;
+            """)
+
+            # 创建触发器：在删除商品前删除所有相关评价
+            cursor.execute("""
+                CREATE TRIGGER before_delete_product_reviews
+                BEFORE DELETE ON products
+                FOR EACH ROW
+                BEGIN
+                    DELETE FROM reviews WHERE product_id = OLD.product_id;
+                END;
+            """)
+
+            # 创建触发器：在删除商品前删除 average_ratings
+            cursor.execute("""
+                CREATE TRIGGER before_delete_product_ratings
+                BEFORE DELETE ON products
+                FOR EACH ROW
+                BEGIN
+                    DELETE FROM average_ratings WHERE product_id = OLD.product_id;
                 END;
             """)
 
@@ -92,6 +111,7 @@ def create_triggers():
     finally:
         if conn:
             conn.close()
+
 
 # 手动触发触发器创建
 @average_ratings_bp.route('/create_triggers', methods=['POST'])

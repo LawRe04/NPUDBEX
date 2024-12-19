@@ -12,8 +12,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: url('background_login.png') no-repeat center center fixed; /* 背景图片 */
-            background-size: cover; /* 让图片覆盖整个屏幕 */
+            background: url('background_login.png') no-repeat center center fixed;
+            background-size: cover;
             font-family: Arial, sans-serif;
         }
         .container {
@@ -79,33 +79,61 @@
     </div>
 
     <script>
-        document.getElementById("login-form").addEventListener("submit", async function(event) {
-            event.preventDefault();
+    document.getElementById("login-form").addEventListener("submit", async function(event) {
+        event.preventDefault();
 
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-            const messageDiv = document.getElementById("message");
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const messageDiv = document.getElementById("message");
 
-            try {
-                const response = await fetch("http://127.0.0.1:5000/api/users/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username, password })
-                });
+        try {
+            const response = await fetch("http://127.0.0.1:5000/api/users/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
 
-                const data = await response.json();
-                if (response.ok) {
-                    messageDiv.style.color = "green";
-                    messageDiv.textContent = "登录成功，正在跳转...";
-                    localStorage.setItem("token", data.token); // 保存 token
-                    setTimeout(() => window.location.href = "home.html", 1500); // 跳转到主页
-                } else {
-                    messageDiv.textContent = data.error || "登录失败，请检查用户名和密码";
+            const data = await response.json();
+            console.log("后端返回的数据:", data); // 输出调试日志
+
+            if (response.ok) {
+                messageDiv.style.color = "green";
+                messageDiv.textContent = "登录成功，正在跳转...";
+                localStorage.setItem("token", data.token); // 保存 token
+
+                // 解析 JWT 的 payload 部分
+                const tokenParts = data.token.split('.');
+                if (tokenParts.length !== 3) {
+                    throw new Error("无效的 JWT 格式");
                 }
-            } catch (error) {
-                messageDiv.textContent = "网络错误，请重试";
+                const payload = JSON.parse(atob(tokenParts[1])); // 解码并解析 payload
+                console.log("解析的用户信息:", payload); // 输出调试日志
+
+                // 解析 sub 字段（包含 user_id 和 role）
+                const userInfo = JSON.parse(payload.sub); // sub 是 JSON 字符串
+                console.log("用户身份信息:", userInfo); // 调试日志
+
+                const role = userInfo.role; // 获取角色信息
+
+                // 根据角色跳转
+                if (role === "seller") {
+                    window.location.href = "seller_home.html";
+                } else if (role === "buyer") {
+                    window.location.href = "buyer_home.html";
+                } else if (role === "admin") {
+                    window.location.href = "admin_home.html";
+                } else {
+                    messageDiv.style.color = "red";
+                    messageDiv.textContent = "未知角色，无法跳转";
+                }
+            } else {
+                messageDiv.textContent = data.error || "登录失败，请检查用户名和密码";
             }
-        });
+        } catch (error) {
+            console.error("解析或网络错误:", error); // 输出捕获的错误
+            messageDiv.textContent = "网络错误，请重试";
+        }
+    });
     </script>
 </body>
 </html>

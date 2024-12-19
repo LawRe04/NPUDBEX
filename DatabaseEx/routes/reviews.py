@@ -114,3 +114,42 @@ def view_reviews(product_id):
     finally:
         if conn:
             conn.close()
+
+# 卖家查看自己商品的所有评价
+@reviews_bp.route('/reviews/seller', methods=['GET'])
+@jwt_required()
+@role_required('seller')  # 仅卖家可访问
+def view_seller_reviews():
+    """卖家查看自己商品的所有评价"""
+    conn = None
+    try:
+        # 获取当前卖家信息
+        current_user = json.loads(get_jwt_identity())
+        seller_id = current_user['user_id']  # 获取当前卖家的 ID
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 查询卖家的商品及其对应的评价
+            sql = """
+                SELECT 
+                    p.product_id, 
+                    p.name AS product_name, 
+                    r.user_id AS buyer_id,
+                    u.username AS buyer_name,
+                    r.stars,
+                    r.comment
+                FROM reviews r
+                JOIN products p ON r.product_id = p.product_id
+                JOIN users u ON r.user_id = u.user_id
+                WHERE p.seller_id = %s
+                ORDER BY p.product_id, r.stars DESC
+            """
+            cursor.execute(sql, (seller_id,))
+            reviews = cursor.fetchall()  # 获取所有评价数据
+
+        return jsonify(reviews), 200  # 返回评价列表
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
