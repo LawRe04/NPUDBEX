@@ -59,7 +59,7 @@ DB_NAME = 'your_database'
 启动 Flask 服务：
 
 python app.py
-访问地址：http://127.0.0.1:5000
+访问地址：用浏览器打开login.html
 
 项目结构
 
