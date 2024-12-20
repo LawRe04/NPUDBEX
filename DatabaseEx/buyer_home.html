@@ -64,6 +64,7 @@
         <h1>欢迎来到买家主页</h1>
     </header>
     <nav>
+        <a href="#" id="view-my-info">我的信息</a>
         <a href="#" id="view-products">查看所有商品</a>
         <a href="#" id="search-products">搜索商品</a>
         <a href="#" id="view-cart">查看购物车</a>
@@ -85,6 +86,46 @@
         }
 
         const contentDiv = document.getElementById("content");
+
+        // 查看个人信息
+        // 查看我的信息
+        document.getElementById("view-my-info").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/users/me", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const userInfo = await response.json();
+
+                if (response.ok) {
+                    const { user_id, username, role } = userInfo.user_info;
+
+                    let userInfoHtml = `
+                        <h2>我的信息</h2>
+                        <table>
+                            <tr>
+                                <th>用户ID</th>
+                                <td>${user_id}</td>
+                            </tr>
+                            <tr>
+                                <th>用户名</th>
+                                <td>${username}</td>
+                            </tr>
+                            <tr>
+                                <th>角色</th>
+                                <td>${role}</td>
+                            </tr>
+                        </table>
+                    `;
+                    contentDiv.innerHTML = userInfoHtml;
+                } else {
+                    contentDiv.innerHTML = `<h2>${userInfo.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试。</h2>";
+            }
+        });
 
         // 查看所有商品
         document.getElementById("view-products").addEventListener("click", async () => {
@@ -283,6 +324,7 @@
                                     <th>名称</th>
                                     <th>价格</th>
                                     <th>库存</th>
+                                    <th>商家名</th>
                                     <th>平均评分</th>
                                     <th>评分数</th>
                                     <th>操作</th>
@@ -294,6 +336,7 @@
                                     <td>${product.product_name}</td>
                                     <td>${product.price}</td>
                                     <td>${product.stock}</td>
+                                    <td>${product.seller_name || "无商家信息"}</td>
                                     <td>${product.average_rating || 0}</td>
                                     <td>${product.rating_count || 0}</td>
                                     <td>
@@ -410,6 +453,7 @@
                         <table>
                             <tr>
                                 <th>订单ID</th>
+                                <th>商品ID</th>
                                 <th>商品名称</th>
                                 <th>商家名称</th>
                                 <th>数量</th>
@@ -420,6 +464,7 @@
                         table += `
                             <tr>
                                 <td>${order.order_id}</td>
+                                <td>${order.product_id}</td>
                                 <td>${order.product_name}</td>
                                 <td>${order.seller_name}</td>
                                 <td>${order.quantity}</td>
@@ -455,6 +500,7 @@
                                 <th>名称</th>
                                 <th>价格</th>
                                 <th>库存</th>
+                                <th>商家名称</th>
                                 <th>平均评分</th>
                                 <th>评分数</th>
                                 <th>操作</th>
@@ -466,6 +512,7 @@
                                 <td>${product.product_name}</td>
                                 <td>${product.price}</td>
                                 <td>${product.stock}</td>
+                                <td>${product.seller_name || "无商家信息"}</td>
                                 <td>${product.average_rating || 0}</td>
                                 <td>${product.rating_count || 0}</td>
                                 <td>
@@ -540,59 +587,109 @@
         }
 
         // 评价商品
-        document.getElementById("review-product").addEventListener("click", () => {
-            contentDiv.innerHTML = `
-                <h2>评价商品</h2>
-                <form id="review-form">
-                    <label for="product-id">商品ID：</label>
-                    <input type="number" id="product-id" placeholder="请输入商品ID" required>
-                    <br><br>
-                    <label for="stars">星级评分（1-5）：</label>
-                    <input type="number" id="stars" placeholder="请输入评分" min="1" max="5" required>
-                    <br><br>
-                    <label for="comment">评价内容：</label>
-                    <textarea id="comment" placeholder="请输入评价内容" rows="4" cols="50"></textarea>
-                    <br><br>
-                    <button type="submit">提交评价</button>
-                </form>
-                <div id="review-message"></div>
-            `;
+        document.getElementById("review-product").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                // 获取已购买商品
+                const ordersResponse = await fetch("http://127.0.0.1:5000/api/orders/my", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const reviewsResponse = await fetch("http://127.0.0.1:5000/api/reviews/my", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
 
-            document.getElementById("review-form").addEventListener("submit", async (event) => {
-                event.preventDefault();
+                const orders = await ordersResponse.json();
+                const reviews = await reviewsResponse.json();
 
-                const productId = document.getElementById("product-id").value.trim();
-                const stars = document.getElementById("stars").value.trim();
-                const comment = document.getElementById("comment").value.trim();
-                const messageDiv = document.getElementById("review-message");
+                if (ordersResponse.ok && reviewsResponse.ok) {
+                    // 提取已评价的商品ID
+                    const reviewedProductIds = new Set(reviews.map(review => review.product_id));
 
-                messageDiv.innerHTML = "<h2>提交中...</h2>";
+                    // 提取唯一的商品（通过 Set 去重）
+                    const uniqueOrders = Array.from(
+                        new Map(
+                            orders
+                                .filter(order => order.status === "已支付")
+                                .map(order => [order.product_id, order]) // Map 的键是 product_id
+                        ).values()
+                    );
 
-                try {
-                    const response = await fetch("http://127.0.0.1:5000/api/reviews", {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            product_id: productId,
-                            stars: parseInt(stars),
-                            comment: comment
-                        })
-                    });
+                    // 过滤出未评价的商品
+                    const reviewableOrders = uniqueOrders.filter(order => !reviewedProductIds.has(order.product_id));
 
-                    if (response.ok) {
-                        const result = await response.json();
-                        messageDiv.innerHTML = `<h2>${result.message}</h2>`;
-                    } else {
-                        const errorData = await response.json();
-                        messageDiv.innerHTML = `<h2>${errorData.error || "提交失败，请重试！"}</h2>`;
+                    if (reviewableOrders.length === 0) {
+                        contentDiv.innerHTML = "<h2>您目前没有未评价的商品。</h2>";
+                        return;
                     }
-                } catch (error) {
-                    messageDiv.innerHTML = "<h2>网络错误，请重试！</h2>";
+
+                    let form = `
+                        <h2>选择购买的商品进行评价</h2>
+                        <form id="review-form">
+                            <label for="product-select">选择商品：</label>
+                            <select id="product-select" required>
+                                ${reviewableOrders.map(order => `
+                                    <option value="${order.product_id}">
+                                        商品ID: ${order.product_id}, 名称: ${order.product_name}, 商家: ${order.seller_name}
+                                    </option>`).join('')}
+                            </select>
+                            <br><br>
+                            <label for="stars">星级评分（1-5）：</label>
+                            <input type="number" id="stars" min="1" max="5" required>
+                            <br><br>
+                            <label for="comment">评价内容：</label>
+                            <textarea id="comment" rows="4" cols="50"></textarea>
+                            <br><br>
+                            <button type="submit">提交评价</button>
+                        </form>
+                        <div id="review-message"></div>
+                    `;
+
+                    contentDiv.innerHTML = form;
+
+                    document.getElementById("review-form").addEventListener("submit", async (event) => {
+                        event.preventDefault();
+
+                        const productId = document.getElementById("product-select").value;
+                        const stars = document.getElementById("stars").value.trim();
+                        const comment = document.getElementById("comment").value.trim();
+
+                        const messageDiv = document.getElementById("review-message");
+                        messageDiv.innerHTML = "<h2>提交中...</h2>";
+
+                        try {
+                            const response = await fetch("http://127.0.0.1:5000/api/reviews", {
+                                method: "POST",
+                                headers: {
+                                    "Authorization": `Bearer ${token}`,
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify({
+                                    product_id: parseInt(productId),
+                                    stars: parseInt(stars),
+                                    comment: comment
+                                })
+                            });
+
+                            if (response.ok) {
+                                const result = await response.json();
+                                messageDiv.innerHTML = `<h2>${result.message}</h2>`;
+                                document.getElementById("review-product").click(); // 刷新页面
+                            } else {
+                                const errorData = await response.json();
+                                messageDiv.innerHTML = `<h2>${errorData.error || "提交失败，请重试！"}</h2>`;
+                            }
+                        } catch (error) {
+                            messageDiv.innerHTML = "<h2>网络错误，请重试！</h2>";
+                        }
+                    });
+                } else {
+                    contentDiv.innerHTML = "<h2>加载失败，请重试。</h2>";
                 }
-            });
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试。</h2>";
+            }
         });
 
         // 查看我的评价
@@ -616,6 +713,7 @@
                             <tr>
                                 <th>商品ID</th>
                                 <th>商品名称</th>
+                                <th>商家名称</th>
                                 <th>星级</th>
                                 <th>评价内容</th>
                                 <th>操作</th>
@@ -625,10 +723,12 @@
                             <tr>
                                 <td>${review.product_id}</td>
                                 <td>${review.product_name}</td>
+                                <td>${review.seller_name}</td>
                                 <td>${review.stars}</td>
                                 <td>${review.comment || "无评价内容"}</td>
                                 <td>
                                     <button onclick="deleteReview(${review.product_id})">撤回评价</button>
+                                    <button onclick="editReview(${review.product_id}, '${review.product_name}', '${review.comment}', ${review.stars})">修改评价</button>
                                 </td>
                             </tr>`;
                     });
@@ -663,6 +763,66 @@
             } catch (error) {
                 alert("网络错误，请重试！");
             }
+        }
+
+        // 修改评价
+        async function editReview(productId, productName, currentComment, currentStars) {
+            contentDiv.innerHTML = `
+                <h2>修改评价</h2>
+                <form id="edit-review-form">
+                    <label for="product-name">商品名称：</label>
+                    <input type="text" id="product-name" value="${productName}" disabled>
+                    <br><br>
+                    <label for="stars">星级评分（1-5）：</label>
+                    <input type="number" id="stars" value="${currentStars}" min="1" max="5" required>
+                    <br><br>
+                    <label for="comment">评价内容：</label>
+                    <textarea id="comment" rows="4" cols="50">${currentComment || ""}</textarea>
+                    <br><br>
+                    <button type="submit">提交修改</button>
+                </form>
+                <div id="edit-review-message"></div>
+            `;
+
+            document.getElementById("edit-review-form").addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const stars = parseInt(document.getElementById("stars").value.trim());
+                const comment = document.getElementById("comment").value.trim();
+                const messageDiv = document.getElementById("edit-review-message");
+
+                if (stars < 1 || stars > 5) {
+                    messageDiv.innerHTML = "<h2>评分必须在1到5之间。</h2>";
+                    return;
+                }
+
+                messageDiv.innerHTML = "<h2>提交中...</h2>";
+
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/reviews/${productId}`, {
+                        method: "PUT",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            stars: stars,
+                            comment: comment
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        messageDiv.innerHTML = `<h2>${result.message}</h2>`;
+                        document.getElementById("view-my-reviews").click(); // 刷新评价列表
+                    } else {
+                        const errorData = await response.json();
+                        messageDiv.innerHTML = `<h2>${errorData.error || "提交失败，请重试！"}</h2>`;
+                    }
+                } catch (error) {
+                    messageDiv.innerHTML = "<h2>网络错误，请重试！</h2>";
+                }
+            });
         }
 
     </script>

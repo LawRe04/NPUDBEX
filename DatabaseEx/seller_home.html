@@ -158,7 +158,6 @@
             }
         });
 
-
         // 添加商品
         document.getElementById("add-product").addEventListener("click", () => {
             contentDiv.innerHTML = `
@@ -364,29 +363,52 @@
             }
         });
 
-
         // 搜索商品
         document.getElementById("search-products").addEventListener("click", () => {
             contentDiv.innerHTML = `
                 <h2>搜索商品</h2>
                 <form id="search-form">
-                    <input type="text" id="search-query" placeholder="请输入商品名称" required>
+                    <input type="text" id="search-product-id" placeholder="商品ID">
+                    <input type="text" id="search-product-name" placeholder="商品名称">
+                    <input type="text" id="search-seller-id" placeholder="商家ID">
+                    <input type="text" id="search-seller-name" placeholder="商家名称">
                     <button type="submit">搜索</button>
                 </form>
                 <div id="search-results"></div>
             `;
+
             document.getElementById("search-form").addEventListener("submit", async (event) => {
                 event.preventDefault();
-                const query = document.getElementById("search-query").value;
+
+                // 获取输入框值
+                const productId = document.getElementById("search-product-id").value.trim();
+                const productName = document.getElementById("search-product-name").value.trim();
+                const sellerId = document.getElementById("search-seller-id").value.trim();
+                const sellerName = document.getElementById("search-seller-name").value.trim();
+
+                // 构造查询参数
+                const queryParams = new URLSearchParams();
+                if (productId) queryParams.append("product_id", productId);
+                if (productName) queryParams.append("name", productName);
+                if (sellerId) queryParams.append("seller_id", sellerId);
+                if (sellerName) queryParams.append("seller_name", sellerName);
+
                 const resultsDiv = document.getElementById("search-results");
                 resultsDiv.innerHTML = "<h2>加载中...</h2>";
+
                 try {
-                    const response = await fetch(`http://127.0.0.1:5000/api/products/search?name=${query}`, {
+                    const response = await fetch(`http://127.0.0.1:5000/api/products/search?${queryParams.toString()}`, {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     });
                     const results = await response.json();
+
                     if (response.ok) {
+                        if (results.length === 0) {
+                            resultsDiv.innerHTML = "<h2>没有找到符合条件的商品。</h2>";
+                            return;
+                        }
+
                         let table = `
                             <h2>搜索结果</h2>
                             <table>
@@ -406,9 +428,9 @@
                                     <td>${product.product_name}</td>
                                     <td>${product.price}</td>
                                     <td>${product.stock}</td>
-                                    <td>${product.seller_name}</td>
-                                    <td>${product.average_rating}</td>
-                                    <td>${product.rating_count}</td>
+                                    <td>${product.seller_name || "无商家信息"}</td>
+                                    <td>${product.average_rating || 0}</td>
+                                    <td>${product.rating_count || 0}</td>
                                 </tr>`;
                         });
                         table += "</table>";
@@ -421,6 +443,7 @@
                 }
             });
         });
+
     </script>
 </body>
 </html>

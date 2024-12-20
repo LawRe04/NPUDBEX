@@ -172,11 +172,13 @@ def view_my_reviews():
             sql = """
                 SELECT 
                     r.product_id, 
-                    p.name AS product_name, 
+                    p.name AS product_name,
+                    u.username AS seller_name, 
                     r.stars, 
                     r.comment
                 FROM reviews r
                 JOIN products p ON r.product_id = p.product_id
+                JOIN users u ON p.seller_id = u.user_id
                 WHERE r.user_id = %s
             """
             cursor.execute(sql, (user_id,))
@@ -189,3 +191,40 @@ def view_my_reviews():
         if conn:
             conn.close()
 
+# 修改评价
+@reviews_bp.route('/reviews/<int:product_id>', methods=['PUT'])
+@jwt_required()
+@role_required('buyer')  # 仅买家可访问
+def update_review(product_id):
+    """修改评价"""
+    conn = None
+    try:
+        data = request.get_json()
+        stars = data['stars']
+        comment = data.get('comment', '')
+
+        # 获取当前用户信息
+        current_user = json.loads(get_jwt_identity())
+        user_id = current_user['user_id']
+
+        if stars < 1 or stars > 5:
+            return jsonify({'error': '星级必须在1到5之间'}), 400
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 检查是否存在评价
+            cursor.execute("SELECT * FROM reviews WHERE product_id = %s AND user_id = %s", (product_id, user_id))
+            review = cursor.fetchone()
+            if not review:
+                return jsonify({'error': '评价不存在'}), 404
+
+            # 修改评价
+            sql = "UPDATE reviews SET stars = %s, comment = %s WHERE product_id = %s AND user_id = %s"
+            cursor.execute(sql, (stars, comment, product_id, user_id))
+            conn.commit()
+        return jsonify({'message': '评价修改成功'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()

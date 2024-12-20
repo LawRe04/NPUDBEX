@@ -111,7 +111,6 @@ def get_my_orders():
         if conn:
             conn.close()
 
-
 # 卖家获取自己的销售订单
 @orders_bp.route('/orders/sales', methods=['GET'])
 @jwt_required()

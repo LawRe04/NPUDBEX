@@ -51,20 +51,18 @@ def get_products():
                     p.price,
                     p.stock,
                     u.username AS seller_name,
-                    IFNULL(AVG(r.stars), 0) AS average_rating,
-                    COUNT(r.stars) AS rating_count
+                    IFNULL(ar.average_stars, 0.00) AS average_rating,
+                    IFNULL(ar.review_count, 0) AS rating_count
                 FROM 
                     products p
                 LEFT JOIN 
-                    reviews r
+                    average_ratings ar
                 ON 
-                    p.product_id = r.product_id
+                    p.product_id = ar.product_id
                 LEFT JOIN
                     users u
                 ON
                     p.seller_id = u.user_id
-                GROUP BY 
-                    p.product_id, p.name, p.price, p.stock
             """
             cursor.execute(sql)
             products = cursor.fetchall()
@@ -289,9 +287,11 @@ def recommend_products():
                     p.name AS product_name,
                     p.price,
                     p.stock,
+                    u.username AS seller_name,
                     IFNULL(ar.average_stars, 0.00) AS average_rating,
                     IFNULL(ar.review_count, 0) AS rating_count
                 FROM products p
+                JOIN users u ON p.seller_id = u.user_id
                 LEFT JOIN average_ratings ar ON p.product_id = ar.product_id
                 ORDER BY ar.review_count DESC, ar.average_stars DESC
                 LIMIT %s
