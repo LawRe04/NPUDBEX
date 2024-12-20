@@ -89,7 +89,7 @@
         document.getElementById("view-users").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
-                const response = await fetch("http://127.0.0.1:5000/api/users", {
+                const response = await fetch("http://192.168.50.207:5000/api/users", {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}` }
                 });
@@ -125,7 +125,7 @@
         document.getElementById("view-orders").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
-                const response = await fetch("http://127.0.0.1:5000/api/orders", {
+                const response = await fetch("http://192.168.50.207:5000/api/orders", {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}` }
                 });
@@ -171,7 +171,7 @@
         async function deleteOrder(orderId) {
             if (confirm("确定要删除这个订单吗？")) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:5000/api/orders/${orderId}`, {
+                    const response = await fetch(`http://192.168.50.207:5000/api/orders/${orderId}`, {
                         method: "DELETE",
                         headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -192,7 +192,7 @@
         document.getElementById("view-reviews").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
-                const response = await fetch("http://127.0.0.1:5000/api/reviews/admin", {
+                const response = await fetch("http://192.168.50.207:5000/api/reviews/admin", {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}` }
                 });
@@ -234,7 +234,7 @@
         async function deleteReview(productId, userId) {
             if (confirm("确定要删除这条评价吗？")) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:5000/api/reviews/admin/${productId}/${userId}`, {
+                    const response = await fetch(`http://192.168.50.207:5000/api/reviews/admin/${productId}/${userId}`, {
                         method: "DELETE",
                         headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -260,23 +260,23 @@
             try {
                 // 请求统计数据
                 const [userStatsResponse, productStatsResponse, orderStatsResponse, topProductsResponse, logsStatsResponse] = await Promise.all([
-                    fetch("http://127.0.0.1:5000/api/admin/stats/users", {
+                    fetch("http://192.168.50.207:5000/api/admin/stats/users", {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     }),
-                    fetch("http://127.0.0.1:5000/api/admin/stats/products", {
+                    fetch("http://192.168.50.207:5000/api/admin/stats/products", {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     }),
-                    fetch("http://127.0.0.1:5000/api/admin/stats/orders", {
+                    fetch("http://192.168.50.207:5000/api/admin/stats/orders", {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     }),
-                    fetch("http://127.0.0.1:5000/api/admin/stats/top-products?limit=10", {
+                    fetch("http://192.168.50.207:5000/api/admin/stats/top-products?limit=10", {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     }),
-                    fetch("http://127.0.0.1:5000/api/admin/stats/logs", {
+                    fetch("http://192.168.50.207:5000/api/admin/stats/logs", {
                         method: "GET",
                         headers: { "Authorization": `Bearer ${token}` }
                     }),
@@ -379,7 +379,7 @@
         document.getElementById("view-products").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
-                const response = await fetch("http://127.0.0.1:5000/api/products", {
+                const response = await fetch("http://192.168.50.207:5000/api/products", {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}` }
                 });
@@ -428,7 +428,7 @@
         async function deleteProduct(productId) {
             if (confirm("确定要删除这个商品吗？")) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:5000/api/admin/products/${productId}`, {
+                    const response = await fetch(`http://192.168.50.207:5000/api/admin/products/${productId}`, {
                         method: "DELETE",
                         headers: { "Authorization": `Bearer ${token}` }
                     });
@@ -451,7 +451,7 @@
         document.getElementById("logs").addEventListener("click", async () => {
             contentDiv.innerHTML = "<h2>加载中...</h2>";
             try {
-                const response = await fetch("http://127.0.0.1:5000/api/admin/logs", {
+                const response = await fetch("http://192.168.50.207:5000/api/admin/logs", {
                     method: "GET",
                     headers: { "Authorization": `Bearer ${token}` }
                 });

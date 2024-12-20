@@ -82,5 +82,11 @@ CREATE TABLE logs (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
+-- 唯一索引（登录用）
+ALTER TABLE users ADD UNIQUE INDEX idx_username (username);
 
+-- 按卖家 ID 查询商品
+ALTER TABLE products ADD INDEX idx_seller_id (seller_id);
 
+-- 按名称模糊查询（如商品搜索）
+ALTER TABLE products ADD FULLTEXT INDEX idx_name (name);
