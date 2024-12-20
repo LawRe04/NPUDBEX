@@ -264,7 +264,7 @@
         async function deleteProduct(productId) {
             if (confirm("确定要删除这个商品吗？")) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:5000/api/products/${productId}`, {
+                    const response = await fetch(`http://127.0.0.1:5000/api/seller/products/${productId}`, {
                         method: "DELETE",
                         headers: { "Authorization": `Bearer ${token}` }
                     });

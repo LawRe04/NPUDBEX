@@ -122,7 +122,6 @@ def create_triggers():
         if conn:
             conn.close()
 
-
 # 手动触发触发器创建
 @average_ratings_bp.route('/create_triggers', methods=['POST'])
 @jwt_required()

@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from db import get_connection
 from routes.permissions import role_required
+from routes.admin import log_action
 
 products_bp = Blueprint('products', __name__)
 
@@ -25,9 +26,17 @@ def add_product():
 
         conn = get_connection()
         with conn.cursor() as cursor:
+            # 插入新产品
             sql = "INSERT INTO products (name, price, stock, seller_id) VALUES (%s, %s, %s, %s)"
             cursor.execute(sql, (name, price, stock, seller_id))
             conn.commit()
+
+            # 获取新插入产品的 ID
+            product_id = cursor.lastrowid
+
+        # 记录日志
+        log_action(seller_id, "添加产品", f"添加了新产品: {name} (ID: {product_id}, 价格: {price}, 库存: {stock})")
+
         return jsonify({'message': '产品添加成功'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -100,6 +109,12 @@ def update_product(product_id):
             if cursor.rowcount == 0:
                 return jsonify({'error': '无权更新此产品或产品不存在'}), 403
             conn.commit()
+
+            # 添加日志记录
+            action = "更新产品"
+            description = f"卖家 {seller_id} 更新了产品 {product_id} 的信息：name={name}, price={price}, stock={stock}"
+            log_action(seller_id, action, description)
+
         return jsonify({'message': '产品信息更新成功'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -108,7 +123,7 @@ def update_product(product_id):
             conn.close()
 
 # 卖家删除产品
-@products_bp.route('/products/<int:product_id>', methods=['DELETE'])
+@products_bp.route('/seller/products/<int:product_id>', methods=['DELETE'])
 @jwt_required()
 @role_required('seller')
 def delete_product(product_id):
@@ -125,7 +140,49 @@ def delete_product(product_id):
             if cursor.rowcount == 0:
                 return jsonify({'error': '无权删除此产品或产品不存在'}), 403
             conn.commit()
+
+            # 添加日志记录
+            action = "删除产品"
+            description = f"卖家 {seller_id} 删除了产品 {product_id}"
+            log_action(seller_id, action, description)
+
         return jsonify({'message': '产品删除成功'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# 管理员强制删除产品
+@products_bp.route('/admin/products/<int:product_id>', methods=['DELETE'])
+@jwt_required()
+@role_required('admin')  # 限制为管理员角色
+def admin_delete_product(product_id):
+    """管理员强制删除产品"""
+    conn = None
+    try:
+        current_user = json.loads(get_jwt_identity())
+        admin_id = current_user['user_id']
+
+        conn = get_connection()
+        with conn.cursor() as cursor:
+            # 检查产品是否存在
+            cursor.execute("SELECT * FROM products WHERE product_id=%s", (product_id,))
+            product = cursor.fetchone()
+            if not product:
+                return jsonify({'error': '产品不存在'}), 404
+
+            # 强制删除产品
+            cursor.execute("DELETE FROM products WHERE product_id=%s", (product_id,))
+            conn.commit()
+
+            # 添加日志记录
+            action = "强制删除产品"
+            description = f"管理员 {admin_id} 强制删除了产品 {product_id}"
+            log_action(admin_id, action, description)
+
+        return jsonify({'message': '产品已强制删除（管理员操作）'}), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:

@@ -2,9 +2,490 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员平台</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+        nav {
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+        }
+        nav a {
+            margin: 0 15px;
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        table th {
+            background-color: #f2f2f2;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #555;
+        }
+    </style>
 </head>
 <body>
+    <header>
+        <h1>欢迎来到管理员平台</h1>
+    </header>
+    <nav>
+        <a href="#" id="view-users">用户管理</a>
+        <a href="#" id="view-orders">订单管理</a>
+        <a href="#" id="view-reviews">评价管理</a>
+        <a href="#" id="view-products">商品管理</a>
+        <a href="#" id="platform-stats">平台统计</a>
+        <a href="#" id="logs">日志管理</a>
+        <a href="login.html" id="logout">退出登录</a>
+    </nav>
+    <div class="container" id="content">
+        <h2>操作提示：请选择上方的功能</h2>
+    </div>
 
+    <script>
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert("未登录，请先登录！");
+            window.location.href = "login.html";
+        }
+
+        const contentDiv = document.getElementById("content");
+
+        // 查看所有用户
+        document.getElementById("view-users").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/users", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const users = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>用户管理</h2>
+                        <table>
+                            <tr>
+                                <th>用户ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                            </tr>`;
+                    users.forEach(user => {
+                        table += `
+                            <tr>
+                                <td>${user.user_id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.role}</td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${users.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 查看所有订单
+        document.getElementById("view-orders").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/orders", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const orders = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>订单管理</h2>
+                        <table>
+                            <tr>
+                                <th>订单ID</th>
+                                <th>买家ID</th>
+                                <th>商品ID</th>
+                                <th>数量</th>
+                                <th>总价</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>`;
+                    orders.forEach(order => {
+                        table += `
+                            <tr>
+                                <td>${order.order_id}</td>
+                                <td>${order.buyer_id}</td>
+                                <td>${order.product_id}</td>
+                                <td>${order.quantity}</td>
+                                <td>${order.total_price}</td>
+                                <td>${order.status}</td>
+                                <td>
+                                    <button onclick="deleteOrder(${order.order_id})">删除</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${orders.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 删除订单
+        async function deleteOrder(orderId) {
+            if (confirm("确定要删除这个订单吗？")) {
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/orders/${orderId}`, {
+                        method: "DELETE",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert("订单删除成功！");
+                        document.getElementById("view-orders").click();
+                    } else {
+                        alert(result.error || "删除失败");
+                    }
+                } catch (error) {
+                    alert("网络错误，请重试");
+                }
+            }
+        }
+
+        // 查看所有评价
+        document.getElementById("view-reviews").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/reviews/admin", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const reviews = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>评价管理</h2>
+                        <table>
+                            <tr>
+                                <th>买家ID</th>
+                                <th>商品ID</th>
+                                <th>星级</th>
+                                <th>评论</th>
+                                <th>操作</th>
+                            </tr>`;
+                    reviews.forEach(review => {
+                        table += `
+                            <tr>
+                                <td>${review.buyer_id}</td>
+                                <td>${review.product_id}</td>
+                                <td>${review.stars}</td>
+                                <td>${review.comment || "无内容"}</td>
+                                <td>
+                                    <button onclick="deleteReview(${review.product_id}, ${review.buyer_id})">删除</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${reviews.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+
+        // 删除评价函数
+        async function deleteReview(productId, userId) {
+            if (confirm("确定要删除这条评价吗？")) {
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/reviews/admin/${productId}/${userId}`, {
+                        method: "DELETE",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert("评价删除成功！");
+                        // 重新加载评价列表
+                        document.getElementById("view-reviews").click();
+                    } else {
+                        alert(result.error || "删除失败");
+                    }
+                } catch (error) {
+                    alert("网络错误，请重试");
+                    console.error("删除评价时发生错误:", error);
+                }
+            }
+        }
+
+        // 平台统计
+        document.getElementById("platform-stats").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+
+            try {
+                // 请求统计数据
+                const [userStatsResponse, productStatsResponse, orderStatsResponse, topProductsResponse, logsStatsResponse] = await Promise.all([
+                    fetch("http://127.0.0.1:5000/api/admin/stats/users", {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                    fetch("http://127.0.0.1:5000/api/admin/stats/products", {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                    fetch("http://127.0.0.1:5000/api/admin/stats/orders", {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                    fetch("http://127.0.0.1:5000/api/admin/stats/top-products?limit=10", {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                    fetch("http://127.0.0.1:5000/api/admin/stats/logs", {
+                        method: "GET",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                ]);
+
+                const userStats = await userStatsResponse.json();
+                const productStats = await productStatsResponse.json();
+                const orderStats = await orderStatsResponse.json();
+                const topProducts = await topProductsResponse.json();
+                const logsStats = await logsStatsResponse.json();
+
+                if (
+                    userStatsResponse.ok &&
+                    productStatsResponse.ok &&
+                    orderStatsResponse.ok &&
+                    topProductsResponse.ok &&
+                    logsStatsResponse.ok
+                ) {
+                    // 构建统计信息页面
+                    let statsHtml = `
+                        <h2>平台统计</h2>
+                        <h3>用户统计</h3>
+                        <p>总用户数: ${userStats.total_users}</p>
+                        <p>买家总数: ${userStats.total_buyers}</p>
+                        <p>卖家总数: ${userStats.total_sellers}</p>
+
+                        <h3>商品统计</h3>
+                        <p>商品总数: ${productStats.total_products}</p>
+                        <p>库存不足商品数: ${productStats.low_stock_products}</p>
+
+                        <h3>订单统计</h3>
+                        <p>订单总数: ${orderStats.total_orders}</p>
+                        <p>完成订单数: ${orderStats.completed_orders}</p>
+                        <p>取消订单数: ${orderStats.canceled_orders}</p>
+                        <p>总销售额: ${orderStats.total_sales}</p>
+
+                        <h3>最热销商品</h3>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>商品名称</th>
+                                <th>销量</th>
+                            </tr>`;
+
+                    topProducts.forEach(product => {
+                        statsHtml += `
+                            <tr>
+                                <td>${product.product_id}</td>
+                                <td>${product.product_name || "未知"}</td>
+                                <td>${product.total_sales}</td>
+                            </tr>`;
+                    });
+
+                    statsHtml += `</table>`;
+
+                    // 添加日志统计部分
+                    statsHtml += `
+                        <h3>日志统计</h3>
+                        <p>日志总数: ${logsStats.stats.total_logs}</p>
+                        <p>涉及用户数: ${logsStats.stats.unique_users}</p>
+                        <h4>最近日志</h4>
+                        <table>
+                            <tr>
+                                <th>用户ID</th>
+                                <th>操作类型</th>
+                                <th>描述</th>
+                                <th>时间</th>
+                            </tr>`;
+
+                    if (logsStats.recent_logs.length > 0) {
+                        logsStats.recent_logs.forEach(log => {
+                            statsHtml += `
+                                <tr>
+                                    <td>${log.user_id}</td>
+                                    <td>${log.action}</td>
+                                    <td>${log.description}</td>
+                                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                                </tr>`;
+                        });
+                    } else {
+                        statsHtml += `
+                            <tr>
+                                <td colspan="4">没有最近日志记录</td>
+                            </tr>`;
+                    }
+
+                    statsHtml += `</table>`;
+
+                    contentDiv.innerHTML = statsHtml;
+                } else {
+                    contentDiv.innerHTML = `<h2>统计信息加载失败，请重试。</h2>`;
+                }
+            } catch (error) {
+                console.error("平台统计加载错误:", error);
+                contentDiv.innerHTML = "<h2>统计信息加载失败，请重试。</h2>";
+            }
+        });
+
+        // 查看所有商品
+        document.getElementById("view-products").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/products", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const products = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>商品管理</h2>
+                        <table>
+                            <tr>
+                                <th>商品ID</th>
+                                <th>商品名称</th>
+                                <th>价格</th>
+                                <th>库存</th>
+                                <th>卖家</th>
+                                <th>平均评分</th>
+                                <th>评分数量</th>
+                                <th>操作</th>
+                            </tr>`;
+                    products.forEach(product => {
+                        table += `
+                            <tr>
+                                <td>${product.product_id}</td>
+                                <td>${product.name}</td>
+                                <td>${product.price}</td>
+                                <td>${product.stock}</td>
+                                <td>${product.seller_name}</td>
+                                <td>${product.average_rating || 0}</td>
+                                <td>${product.rating_count || 0}</td>
+                                <td>
+                                    <button onclick="deleteProduct(${product.product_id})">删除</button>
+                                </td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${products.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+                console.error("加载商品失败:", error);
+            }
+        });
+
+        // 删除商品函数
+        async function deleteProduct(productId) {
+            if (confirm("确定要删除这个商品吗？")) {
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/admin/products/${productId}`, {
+                        method: "DELETE",
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert("商品删除成功！");
+                        // 重新加载商品列表
+                        document.getElementById("view-products").click();
+                    } else {
+                        alert(result.error || "删除失败");
+                    }
+                } catch (error) {
+                    alert("网络错误，请重试");
+                    console.error("删除商品时发生错误:", error);
+                }
+            }
+        }
+
+        // 日志管理
+        document.getElementById("logs").addEventListener("click", async () => {
+            contentDiv.innerHTML = "<h2>加载中...</h2>";
+            try {
+                const response = await fetch("http://127.0.0.1:5000/api/admin/logs", {
+                    method: "GET",
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const logs = await response.json();
+                if (response.ok) {
+                    let table = `
+                        <h2>日志管理</h2>
+                        <table>
+                            <tr>
+                                <th>日志ID</th>
+                                <th>用户ID</th>
+                                <th>操作类型</th>
+                                <th>描述</th>
+                                <th>时间</th>
+                            </tr>`;
+                    logs.forEach(log => {
+                        table += `
+                            <tr>
+                                <td>${log.log_id}</td>
+                                <td>${log.user_id}</td>
+                                <td>${log.action}</td>
+                                <td>${log.description}</td>
+                                <td>${log.timestamp}</td>
+                            </tr>`;
+                    });
+                    table += "</table>";
+                    contentDiv.innerHTML = table;
+                } else {
+                    contentDiv.innerHTML = `<h2>${logs.error || "加载失败"}</h2>`;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = "<h2>加载失败，请重试</h2>";
+            }
+        });
+    </script>
 </body>
 </html>
